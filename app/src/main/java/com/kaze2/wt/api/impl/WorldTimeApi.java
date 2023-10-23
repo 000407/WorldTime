@@ -1,6 +1,8 @@
 package com.kaze2.wt.api.impl;
 
+import com.google.gson.Gson;
 import com.kaze2.wt.api.TimeApi;
+import com.kaze2.wt.dto.WorldTimeResponse;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +26,17 @@ public class WorldTimeApi implements TimeApi {
 
         final Call call = client.newCall(request);
         final Response response = call.execute();
-        return response.body().string();
+        final String body = response.body().string();
+
+        //Deserialization using GSON
+
+        //1. Create GSON object
+        final Gson gson = new Gson();
+
+        //2. Deserialize the JSON string using gson.fromJson(String, Class<T>) method
+        final WorldTimeResponse time = gson.fromJson(body, WorldTimeResponse.class);
+
+        //3. Return the time string.
+        return time.getDatetime();
     }
 }

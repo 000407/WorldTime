@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.TextView;
 
 import com.kaze2.wt.api.TimeApi;
 import com.kaze2.wt.api.impl.WorldTimeApi;
@@ -24,8 +25,16 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    final String str = timeApi.getTimeAtZone("Asia/Tokyo");
-                    Log.i(TAG, str);
+                    final String timeAtTokyo = timeApi.getTimeAtZone("Asia/Tokyo");
+                    Log.i(TAG, timeAtTokyo);
+                    final TextView txtTime = findViewById(R.id.txtTime);
+
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            txtTime.setText(timeAtTokyo);
+                        }
+                    });
+
                 } catch (IOException e) {
                     Log.e(TAG, e.getMessage());
                 }
