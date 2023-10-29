@@ -5,6 +5,7 @@ import com.kaze2.wt.api.TimeApi;
 import com.kaze2.wt.dto.WorldTimeResponse;
 
 import java.io.IOException;
+import java.time.ZonedDateTime;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Call;
@@ -19,7 +20,7 @@ public class WorldTimeApi implements TimeApi {
             .build();
 
     @Override
-    public String getTimeAtZone(String timeZone) throws IOException {
+    public ZonedDateTime getTimeAtZone(String timeZone) throws IOException {
         final Request request = new Request.Builder()
                 .url("https://worldtimeapi.org/api/timezone/" + timeZone)
                 .build();
@@ -36,7 +37,7 @@ public class WorldTimeApi implements TimeApi {
         //2. Deserialize the JSON string using gson.fromJson(String, Class<T>) method
         final WorldTimeResponse time = gson.fromJson(body, WorldTimeResponse.class);
 
-        //3. Return the time string.
-        return time.getDatetime();
+        //3. Parse the datetime string as a ZonedDateTime instance and return.
+        return ZonedDateTime.parse(time.getDatetime());
     }
 }
