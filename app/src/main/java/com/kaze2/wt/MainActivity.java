@@ -1,16 +1,21 @@
 package com.kaze2.wt;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import com.kaze2.wt.adapter.LocationTimeListAdapter;
@@ -32,9 +37,14 @@ public class MainActivity extends AppCompatActivity {
   private static final String TAG = "WT_MAIN";
 
   private final TimeService timeService =
-      RetrofitClient.getRetrofitInstance().create(TimeService.class); // Create the service that accesses the backend APIs using retrofit
+      RetrofitClient.getRetrofitInstance()
+          .create(
+              TimeService
+                  .class); // Create the service that accesses the backend APIs using retrofit
   private final List<Pair<String, ZonedDateTime>> worldTimeLocations = new ArrayList<>();
   private final LocationTimeListAdapter adapter = new LocationTimeListAdapter(worldTimeLocations);
+
+  private AlertDialog timezonePicker;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +58,8 @@ public class MainActivity extends AppCompatActivity {
 
     // Setting Adapter to RecyclerView
     recyclerView.setAdapter(adapter);
+
+    setupTimezonePicker(this);
 
     // Read about anonymous implementations of interfaces, lambda & functional interface
     new Thread(
@@ -71,15 +83,7 @@ public class MainActivity extends AppCompatActivity {
   @Override
   public boolean onOptionsItemSelected(@NonNull MenuItem item) {
     if (item.getItemId() == R.id.action_add_location) {
-      new Thread(
-              () -> {
-                try {
-                  addNewLocationAtTime("Asia", "Colombo");
-                } catch (IOException e) {
-                  Log.e(TAG, e.getMessage());
-                }
-              })
-          .start();
+      timezonePicker.show();
     }
 
     return true;
@@ -104,20 +108,55 @@ public class MainActivity extends AppCompatActivity {
                   runOnUiThread(
                       () ->
                           adapter.notifyItemInserted(
-                              worldTimeLocations.size() - 1)); // Read about multiline
-                  // lambda vs expression
-                  // lambda
+                              worldTimeLocations.size() - 1)); // Read about multiline lambda vs expression lambda
                 } else {
-                    Log.e(TAG, Objects.toString(response));
-                    Toast.makeText(MainActivity.this, "Something went wrong...", Toast.LENGTH_SHORT).show(); // Read about toasts in Android https://developer.android.com/guide/topics/ui/notifiers/toasts
+                  Log.e(TAG, Objects.toString(response));
+                  Toast.makeText(MainActivity.this, "Something went wrong...", Toast.LENGTH_SHORT)
+                      .show(); // Read about toasts in Android https://developer.android.com/guide/topics/ui/notifiers/toasts
                 }
               }
 
               @Override
               public void onFailure(Call<WorldTimeResponse> call, Throwable t) {
                 Log.e(TAG, t.getMessage());
-                Toast.makeText(MainActivity.this, "Something went wrong...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Something went wrong...", Toast.LENGTH_SHORT)
+                    .show();
               }
             });
+  }
+
+  private void setupTimezonePicker(Context context) {
+    final AlertDialog.Builder builder = new AlertDialog.Builder(context);
+    builder.setTitle("Choose a Time Zone");
+
+    final View viewInflated = LayoutInflater.from(context).inflate(R.layout.timezone_picker, null);
+
+    // Set up the input
+    final EditText txtContinent = viewInflated.findViewById(R.id.txtContinent);
+    final EditText txtCity = viewInflated.findViewById(R.id.txtCity);
+
+    builder.setView(viewInflated);
+
+    // Set up the buttons
+    builder.setPositiveButton(
+        android.R.string.ok,
+        (dialog, which) -> {
+          dialog.dismiss();
+          final String continent = txtContinent.getText().toString();
+          final String city = txtCity.getText().toString();
+
+          new Thread(
+                  () -> {
+                    try {
+                      addNewLocationAtTime(continent, city);
+                    } catch (IOException e) {
+                      Log.e(TAG, e.getMessage());
+                    }
+                  })
+              .start();
+        });
+    builder.setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.cancel());
+
+    timezonePicker = builder.create();
   }
 }

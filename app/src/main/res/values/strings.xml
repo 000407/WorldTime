@@ -2,4 +2,6 @@
     <string name="app_name">World Time</string>
     <string name="loading_text">Loading&#8230;</string>
     <string name="txt_add">Add</string>
+    <string name="hint_continent">e.g. Asia</string>
+    <string name="hint_city">e.g. Colombo</string>
 </resources>
