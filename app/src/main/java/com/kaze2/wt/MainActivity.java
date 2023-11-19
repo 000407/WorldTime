@@ -7,6 +7,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
@@ -21,6 +22,8 @@ import android.widget.Toast;
 import com.kaze2.wt.adapter.LocationTimeListAdapter;
 import com.kaze2.wt.api.RetrofitClient;
 import com.kaze2.wt.api.TimeService;
+import com.kaze2.wt.data.DatabaseHelper;
+import com.kaze2.wt.data.DbManager;
 import com.kaze2.wt.dto.WorldTimeResponse;
 
 import java.io.IOException;
@@ -35,7 +38,6 @@ import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
   private static final String TAG = "WT_MAIN";
-
   private final TimeService timeService =
       RetrofitClient.getRetrofitInstance()
           .create(
@@ -43,13 +45,15 @@ public class MainActivity extends AppCompatActivity {
                   .class); // Create the service that accesses the backend APIs using retrofit
   private final List<Pair<String, ZonedDateTime>> worldTimeLocations = new ArrayList<>();
   private final LocationTimeListAdapter adapter = new LocationTimeListAdapter(worldTimeLocations);
-
+  private DbManager dbManager;
   private AlertDialog timezonePicker;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+
+    dbManager = new DbManager(this);
 
     final RecyclerView recyclerView = findViewById(R.id.recyclerView);
     final LinearLayoutManager linearLayoutManager =
@@ -61,16 +65,38 @@ public class MainActivity extends AppCompatActivity {
 
     setupTimezonePicker(this);
 
-    // Read about anonymous implementations of interfaces, lambda & functional interface
-    new Thread(
-            () -> { // Lambda function in the place of Runnable
-              try {
-                addNewLocationAtTime("Asia", "Tokyo");
-              } catch (IOException e) {
-                Log.e(TAG, e.getMessage());
-              }
-            })
-        .start();
+    try (final Cursor cursor = dbManager.open().fetch()) {
+      do {
+        int columnIndex = cursor.getColumnIndex(DatabaseHelper.CONTINENT);
+
+        if (columnIndex < 0) {
+          throw new RuntimeException("No column was found with name " + DatabaseHelper.CONTINENT);
+        }
+
+        final String continent = cursor.getString(columnIndex);
+
+        columnIndex = cursor.getColumnIndex(DatabaseHelper.CITY);
+
+        if (columnIndex < 0) {
+          throw new RuntimeException("No column was found with name " + DatabaseHelper.CITY);
+        }
+
+        final String city = cursor.getString(columnIndex);
+
+        // Read about anonymous implementations of interfaces, lambda & functional interface
+        new Thread(
+                () -> { // Lambda function in the place of Runnable
+                  try {
+                    addNewTimeAtLocation(continent, city);
+                  } catch (IOException e) {
+                    Log.e(TAG, e.getMessage());
+                  } catch (Exception e) {
+                    Log.e(TAG, "ERROR: ", e);
+                  }
+                })
+            .start();
+      } while (cursor.moveToNext());
+    }
   }
 
   @Override
@@ -89,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
     return true;
   }
 
-  private void addNewLocationAtTime(String continent, String city) throws IOException {
+  private void addNewTimeAtLocation(String continent, String city) throws IOException {
     timeService
         .getTimeAtZone(continent, city) // Calling the method that sends the HTTP request
         .enqueue(
@@ -108,11 +134,13 @@ public class MainActivity extends AppCompatActivity {
                   runOnUiThread(
                       () ->
                           adapter.notifyItemInserted(
-                              worldTimeLocations.size() - 1)); // Read about multiline lambda vs expression lambda
+                              worldTimeLocations.size()
+                                  - 1)); // Read about multiline lambda vs expression lambda
                 } else {
                   Log.e(TAG, Objects.toString(response));
                   Toast.makeText(MainActivity.this, "Something went wrong...", Toast.LENGTH_SHORT)
-                      .show(); // Read about toasts in Android https://developer.android.com/guide/topics/ui/notifiers/toasts
+                      .show(); // Read about toasts in Android
+                               // https://developer.android.com/guide/topics/ui/notifiers/toasts
                 }
               }
 
@@ -123,6 +151,12 @@ public class MainActivity extends AppCompatActivity {
                     .show();
               }
             });
+  }
+
+  @Override
+  protected void onPause() {
+    super.onPause();
+    dbManager.close();
   }
 
   private void setupTimezonePicker(Context context) {
@@ -145,10 +179,12 @@ public class MainActivity extends AppCompatActivity {
           final String continent = txtContinent.getText().toString();
           final String city = txtCity.getText().toString();
 
+          dbManager.insert(continent, city, ""); // Let's keep timeOffset empty for now
+
           new Thread(
                   () -> {
                     try {
-                      addNewLocationAtTime(continent, city);
+                      addNewTimeAtLocation(continent, city);
                     } catch (IOException e) {
                       Log.e(TAG, e.getMessage());
                     }
